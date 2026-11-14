@@ -21,7 +21,7 @@ object MtzPaths {
     const val PREVIEW_DIR = "preview/"
     const val PREVIEW_FONT_SMALL = "preview/preview_fonts_small_0.png"
     const val PREVIEW_FONT = "preview/preview_fonts_0.jpg"
-    const val PREVIEW_ICONS = "preview/preview_icons_0.png"
+    const val PREVIEW_ICONS = "preview/preview_icons_0.jpg"
 
     /** ruta en el MTZ -> resourceCode (según la tabla encontrada en zFont 3). */
     val RESOURCE_CODES = mapOf(
@@ -69,6 +69,41 @@ class MtzWriter(private val out: OutputStream) : AutoCloseable {
         zip.putNextEntry(e)
         zip.write(data)
         zip.closeEntry()
+    }
+
+    /** Añade un fichero sin comprimir (STORED) en streaming: calcula el CRC en una primera pasada. */
+    fun addStored(path: String, file: File) {
+        require(!path.startsWith("/") && !path.contains("..") && !path.contains('\\')) { "Ruta no válida: $path" }
+        require(names.add(path)) { "Entrada duplicada: $path" }
+        ensureDirs(path)
+        val crc = CRC32()
+        file.inputStream().buffered().use { s -> val buf = ByteArray(64 * 1024); while (true) { val n = s.read(buf); if (n < 0) break; crc.update(buf, 0, n) } }
+        val e = ZipEntry(path).apply {
+            time = fixedTime; method = ZipEntry.STORED; size = file.length(); compressedSize = file.length(); this.crc = crc.value
+        }
+        zip.putNextEntry(e)
+        file.inputStream().buffered().use { it.copyTo(zip) }
+        zip.closeEntry()
+    }
+
+    /**
+     * Copia todas las entradas de un MTZ base salvo las indicadas (modo "MTZ base":
+     * se conserva un tema que ya funciona y solo se sustituye un componente).
+     */
+    fun copyFrom(base: File, except: Set<String>): List<String> {
+        val copied = ArrayList<String>()
+        ZipFile(base).use { z ->
+            for (e in z.entries()) {
+                if (e.isDirectory || e.name in except) continue
+                if (e.name.startsWith("/") || e.name.contains("..")) continue
+                if (e.method == ZipEntry.STORED) {
+                    val tmp = File.createTempFile("base", ".bin").apply { deleteOnExit() }
+                    try { z.getInputStream(e).use { i -> tmp.outputStream().use { i.copyTo(it) } }; addStored(e.name, tmp) } finally { tmp.delete() }
+                } else z.getInputStream(e).use { add(e.name, it) }
+                copied += e.name
+            }
+        }
+        return copied
     }
 
     /** Añade una entrada comprimida leyendo de un stream (para contenidos grandes). */

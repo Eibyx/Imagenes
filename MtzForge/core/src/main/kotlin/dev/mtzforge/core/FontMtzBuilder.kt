@@ -16,6 +16,8 @@ data class FontMtzOptions(
     val collectionIndex: Int = 0,
     /** Añade además la fuente como fallback (DroidSansFallback.ttf). Experimental. */
     val includeFallback: Boolean = false,
+    /** Modo "MTZ base": tema que ya funciona; se conserva todo salvo las fuentes. */
+    val baseMtz: java.io.File? = null,
 )
 
 /**
@@ -45,10 +47,15 @@ object FontMtzBuilder {
         val warnings = font.warnings().toMutableList()
         if (SfntFont.fontCount(fontData) > 1) warnings += "Colección TTC: se usó la fuente #${options.collectionIndex}."
         MtzWriter(out).use { w ->
-            w.add(MtzPaths.DESCRIPTION, options.description.toXml().toByteArray(Charsets.UTF_8))
+            val base = options.baseMtz
+            if (base != null) {
+                val replaced = mutableSetOf(MtzPaths.FONT)
+                if (options.includeFallback) replaced += MtzPaths.FONT_FALLBACK
+                w.copyFrom(base, except = replaced)
+            } else w.add(MtzPaths.DESCRIPTION, options.description.toXml().toByteArray(Charsets.UTF_8))
             w.add(MtzPaths.FONT, bytes)
             if (options.includeFallback) w.add(MtzPaths.FONT_FALLBACK, bytes)
-            previews.entries.toSortedMap().forEach { (p, d) -> w.add(p, d) }
+            if (base == null) previews.entries.toSortedMap().forEach { (p, d) -> w.add(p, d) }
         }
         return Result(font, warnings)
     }

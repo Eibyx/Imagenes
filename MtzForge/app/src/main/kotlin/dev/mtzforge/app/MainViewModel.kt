@@ -41,6 +41,7 @@ data class FontUi(
     val author: String = "",
     val index: Int = 0,
     val fallback: Boolean = false,
+    val baseName: String? = null,
 )
 
 data class IconUi(
@@ -52,6 +53,7 @@ data class IconUi(
     val activityIcons: Boolean = true,
     val installedOnly: Boolean = true,
     val installedMatches: Int = 0,
+    val baseName: String? = null,
     val sample: List<ImageBitmap> = emptyList(),
 )
 
@@ -91,6 +93,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var fontBytes: ByteArray? = null
     private var iconPack: IconPack? = null
 
+    private val baseFont = File(app.filesDir, "base_font.mtz")
+    private val baseIcons = File(app.filesDir, "base_icons.mtz")
     private val lastFont = File(app.filesDir, "last_font.mtz")
     private val lastIcons = File(app.filesDir, "last_icons.mtz")
     val hasLastFont get() = lastFont.exists()
@@ -114,6 +118,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(busy = false, progress = null) }
             }
         }
+    }
+
+    // ---------------- MTZ base (tema que ya funciona) ----------------
+
+    fun setBase(forIcons: Boolean, uri: Uri?) = work {
+        val target = if (forIcons) baseIcons else baseFont
+        if (uri == null) {
+            target.delete()
+        } else {
+            ctx.contentResolver.openInputStream(uri)!!.use { input -> target.outputStream().use { input.copyTo(it) } }
+            if (!dev.mtzforge.core.ApkAppFilter.isZip(target)) { target.delete(); error("El fichero elegido no es un MTZ") }
+            val rep = MtzInspector.inspect(target)
+            if (rep.description == null) { target.delete(); error("El MTZ base no es válido: ${rep.errors.joinToString()}") }
+        }
+        val name = uri?.let { displayName(it) }
+        if (forIcons) _state.update { it.copy(icons = it.icons.copy(baseName = name)) }
+        else _state.update { it.copy(font = it.font.copy(baseName = name)) }
     }
 
     // ---------------- Fuentes ----------------
@@ -164,7 +185,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         ))
         val desc = ThemeDescription(title = title, author = author.trim().ifEmpty { "MTZ Forge" }, description = "Fuente empaquetada con MTZ Forge")
         val tmp = File(ctx.cacheDir, "font_${System.nanoTime()}.mtz")
-        val r = tmp.outputStream().use { FontMtzBuilder.build(bytes, FontMtzOptions(desc, index, fallback), previews, it) }
+        val base = baseFont.takeIf { keep && it.exists() }
+        val r = tmp.outputStream().use { FontMtzBuilder.build(bytes, FontMtzOptions(desc, index, fallback, base), previews, it) }
         return finish(tmp, title, OutputKind.FONT, r.warnings, keep)
     }
 
@@ -249,11 +271,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         } else full
         if (filter.items.isEmpty()) error("El pack no tiene iconos para ninguna de las apps instaladas. Desactiva «Solo apps instaladas».")
         val sample = filter.drawables.asSequence().mapNotNull { pack.render(it, 144) }.take(24).toList()
-        val previews = Previews(mapOf(MtzPaths.PREVIEW_ICONS to PreviewRenderer.iconGrid(sample, title)))
-        val desc = ThemeDescription(title = title, description = "Iconos convertidos desde ${pack.packageName} con MTZ Forge")
+        val previews = Previews(mapOf(MtzPaths.PREVIEW_ICONS to PreviewRenderer.iconGridJpeg(sample, title)))
+        val desc = ThemeDescription(title = title, uiVersion = ThemeDescription.ICONS_UI_VERSION,
+            description = "Iconos convertidos desde ${pack.packageName} con MTZ Forge")
         val tmp = File(ctx.cacheDir, "icons_${System.nanoTime()}.mtz")
         val r = tmp.outputStream().use {
-            IconMtzBuilder.build(filter, IconMtzOptions(desc, ui.activityIcons), previews, it, tempDir = ctx.cacheDir,
+            IconMtzBuilder.build(filter, IconMtzOptions(desc, ui.activityIcons, baseIcons.takeIf { f -> f.exists() }), previews, it, tempDir = ctx.cacheDir,
                 progress = { d, t -> if (d % 20 == 0 || d == t) _state.update { s -> s.copy(progress = d.toFloat() / t) } },
             ) { d -> pack.render(d, size)?.encode(Bitmap.CompressFormat.PNG) }
         }

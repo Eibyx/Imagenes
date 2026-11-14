@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Error
 import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Folder
@@ -126,6 +127,7 @@ private fun Warnings(list: List<String>) {
 fun FontScreen(
     font: FontUi, busy: Boolean,
     onPick: () -> Unit, onChange: ((FontUi) -> FontUi) -> Unit, onIndex: (Int) -> Unit, onBuild: () -> Unit,
+    onPickBase: () -> Unit = {}, onClearBase: () -> Unit = {},
 ) = ScreenColumn {
     SectionCard("Fuente TTF / OTF / TTC", Icons.Outlined.TextFields) {
         FilledTonalButton(onClick = onPick, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
@@ -155,6 +157,7 @@ fun FontScreen(
             OutlinedTextField(font.title, { v -> onChange { it.copy(title = v) } }, label = { Text("Título") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(font.author, { v -> onChange { it.copy(author = v) } }, label = { Text("Autor (opcional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             SwitchRow("Usar también como fuente de reserva", "Añade DroidSansFallback.ttf (experimental)", font.fallback) { v -> onChange { it.copy(fallback = v) } }
+            BaseMtzRow(font.baseName, busy, onPickBase, onClearBase, "la fuente")
             Button(onClick = onBuild, enabled = !busy, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Generar MTZ de fuente") }
         }
     }
@@ -164,6 +167,23 @@ fun FontScreen(
 private fun Preview(img: ImageBitmap) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest), modifier = Modifier.fillMaxWidth()) {
         Image(img, null, Modifier.fillMaxWidth().height(72.dp).padding(8.dp), contentScale = ContentScale.Fit)
+    }
+}
+
+/** Selector opcional de "MTZ base": un tema que ya funciona en tu Temas. */
+@Composable
+fun BaseMtzRow(name: String?, busy: Boolean, onPick: () -> Unit, onClear: () -> Unit, what: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("MTZ base (opcional)", style = MaterialTheme.typography.bodyLarge)
+        Text("Elige un tema .mtz que ya te funcione en Temas: se conserva entero y solo se sustituye $what. Úsalo si Temas rechaza el MTZ independiente.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = onPick, enabled = !busy) { Text(if (name == null) "Elegir MTZ base" else "Cambiar") }
+            if (name != null) {
+                AssistChip(onClick = onClear, label = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    trailingIcon = { Icon(Icons.Outlined.Close, "Quitar", Modifier.size(16.dp)) }, modifier = Modifier.weight(1f, fill = false))
+            }
+        }
     }
 }
 
@@ -185,9 +205,10 @@ private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChang
 fun IconScreen(
     icons: IconUi, busy: Boolean,
     onPickApk: () -> Unit, onPickInstalled: () -> Unit, onChange: ((IconUi) -> IconUi) -> Unit, onBuild: () -> Unit,
+    onPickBase: () -> Unit = {}, onClearBase: () -> Unit = {},
 ) = ScreenColumn {
     SectionCard("Pack de iconos → MTZ", Icons.Outlined.Apps) {
-        Text("Compatible con packs que usan appfilter.xml (Nova, ADW, Lawnchair…).",
+        Text("Compatible con packs que usan appfilter.xml (Nova, ADW, Lawnchair, Arcticons…). Acepta .apk, .apks y .xapk.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalButton(onClick = onPickInstalled, enabled = !busy, modifier = Modifier.weight(1f)) { Text("Instalado") }
@@ -210,6 +231,7 @@ fun IconScreen(
                 label = { Text("Tamaño de icono (px)") }, supportingText = { Text("168 px observado en temas MIUI") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
             SwitchRow("Solo apps instaladas", "Incluye solo los iconos de tus apps (${icons.installedMatches}); el MTZ es mucho más pequeño", icons.installedOnly) { v -> onChange { it.copy(installedOnly = v) } }
+            BaseMtzRow(icons.baseName, busy, onPickBase, onClearBase, "el componente de iconos")
             SwitchRow("Iconos por actividad", "Crea <actividad>.png cuando una app usa iconos distintos", icons.activityIcons) { v -> onChange { it.copy(activityIcons = v) } }
             Button(onClick = onBuild, enabled = !busy, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Generar MTZ de iconos") }
         }

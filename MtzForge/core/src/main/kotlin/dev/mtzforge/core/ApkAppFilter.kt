@@ -85,19 +85,41 @@ object AxmlParser {
 object ApkAppFilter {
     data class Found(val entry: String, val filter: AppFilter)
 
+    private val NAMED = Regex("(?i)^(appfilter.*|app_filter|icon_config)\\.xml$")
+
+    /**
+     * 1) Busca por nombre (appfilter*.xml, app_filter.xml, icon_config.xml en cualquier carpeta).
+     * 2) Si no aparece (APK con nombres de recursos ofuscados, p. ej. res/aB.xml), revisa
+     *    todos los XML y elige el que más entradas `<item component=…>` tenga.
+     */
     fun find(apk: File): Found? = ZipFile(apk).use { z ->
-        val candidates = z.entries().toList()
-            .filter { !it.isDirectory && it.name.substringAfterLast('/').equals("appfilter.xml", ignoreCase = true) }
+        val xmls = z.entries().toList().filter { !it.isDirectory && it.name.endsWith(".xml", true) && it.name != "AndroidManifest.xml" }
+        val named = xmls.filter { NAMED.matches(it.name.substringAfterLast('/')) }
             .sortedBy { if (it.name.startsWith("assets/")) 0 else 1 }
-        for (e in candidates) {
+        for (e in named) parse(z.getInputStream(e).use { it.readBytes() })?.let { return@use Found(e.name, it) }
+        var best: Found? = null
+        for (e in xmls) {
+            if (e in named || e.size > 64L * 1024 * 1024) continue
             val bytes = z.getInputStream(e).use { it.readBytes() }
-            val filter = runCatching {
-                if (AxmlParser.isAxml(bytes)) AppFilter.fromElements(AxmlParser.elements(bytes).asSequence())
-                else AppFilter.parseXml(bytes)
-            }.getOrNull() ?: continue
-            if (filter.items.isNotEmpty()) return@use Found(e.name, filter)
+            if (!mentionsComponent(bytes)) continue
+            val f = parse(bytes) ?: continue
+            if (best == null || f.items.size > best.filter.items.size) best = Found(e.name, f)
         }
-        null
+        best
+    }
+
+    private fun parse(bytes: ByteArray): AppFilter? = runCatching {
+        if (AxmlParser.isAxml(bytes)) AppFilter.fromElements(AxmlParser.elements(bytes).asSequence())
+        else AppFilter.parseXml(bytes)
+    }.getOrNull()?.takeIf { it.items.isNotEmpty() }
+
+    /** Filtro rápido: el texto "ComponentInfo" en UTF-8 o UTF-16LE (pool de cadenas del AXML). */
+    private val NEEDLE8 = "ComponentInfo".toByteArray(Charsets.UTF_8)
+    private val NEEDLE16 = "ComponentInfo".toByteArray(Charsets.UTF_16LE)
+    private fun mentionsComponent(b: ByteArray) = indexOf(b, NEEDLE8) >= 0 || indexOf(b, NEEDLE16) >= 0
+    private fun indexOf(h: ByteArray, n: ByteArray): Int {
+        outer@ for (i in 0..h.size - n.size) { for (j in n.indices) if (h[i + j] != n[j]) continue@outer; return i }
+        return -1
     }
 
     /** Nombres de APK internos si el fichero es un paquete .apks/.xapk/.apkm. */

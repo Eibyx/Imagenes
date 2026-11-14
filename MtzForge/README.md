@@ -38,14 +38,14 @@ core/            Kotlin/JVM puro: SFNT, description.xml, MTZ, appfilter→iconos
 app/             App Compose + Material 3, Shizuku (AIDL UserService), tests Robolectric
 sample-iconpack/ Pack de iconos de prueba con diseños propios
 samples/         MTZ y biblioteca .data de ejemplo generados por los tests
-dist/            MtzForge-0.3.0.apk (release minificado, firma debug) y pack de prueba
+dist/            MtzForge-0.4.0.apk (release minificado, firma debug) y pack de prueba
 docs/            Informe del análisis y capturas
 ```
 
 ## Compilar
 ```sh
 # JDK 17+ y Android SDK 35 (local.properties: sdk.dir=...)
-./gradlew :core:test :app:testDebugUnitTest     # 36 tests
+./gradlew :core:test :app:testDebugUnitTest     # 41 tests
 ./gradlew :app:assembleRelease                  # firma debug salvo que definas MTZFORGE_KEYSTORE*
 ```
 GitHub Actions (`.github/workflows/mtzforge.yml`) ejecuta los tests y publica los APK como artefactos. Para firmarlos con tu propia clave, añade los secrets `MTZFORGE_KEYSTORE_BASE64`, `MTZFORGE_KEYSTORE_PASSWORD`, `MTZFORGE_KEY_ALIAS` y `MTZFORGE_KEY_PASSWORD`.
@@ -56,3 +56,18 @@ CLI de escritorio:
 core/build/install/core/bin/core font MiFuente.ttf MiFuente.mtz "Mi fuente"
 core/build/install/core/bin/core inspect MiFuente.mtz
 ```
+
+## Referencias de formato (iconos APK → MTZ)
+
+La conversión de iconos se comparó con dos proyectos públicos. Solo se usaron como referencia del formato; el código de MTZ Forge es propio.
+
+- **[Adiker/IconPack-to-MTZ](https://github.com/Adiker/IconPack-to-MTZ)** (Apache-2.0). Según su documentación, el import se probó en un POCO F8 Ultra con HyperOS. Se adoptó:
+  - `icons` sin comprimir (STORED);
+  - `preview/preview_icons_0.jpg`;
+  - `uiVersion` 15 para iconos;
+  - el drawable más frecuente como icono del paquete;
+  - las variantes de appfilter (`res/raw`, `app_filter`, `icon_config`);
+  - el **modo MTZ base**: conservar un tema que funciona y sustituir solo un componente.
+- **[Inefy-03/IconEditor](https://github.com/Inefy-03/IconEditor)** (sin licencia publicada: solo se consultaron datos del formato). Confirma `<theme>` con `uiVersion` 17 y `icons` STORED.
+
+MTZ Forge extiende el modo MTZ base también a las **fuentes** y busca el appfilter por contenido cuando el APK tiene los nombres de recursos ofuscados.

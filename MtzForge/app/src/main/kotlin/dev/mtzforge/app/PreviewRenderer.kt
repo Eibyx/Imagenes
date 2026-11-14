@@ -67,6 +67,13 @@ object PreviewRenderer {
         return bmp.encode(Bitmap.CompressFormat.PNG)
     }
 
+    /** Igual que [iconGrid] pero en JPEG (preview/preview_icons_0.jpg, como los MTZ de referencia). */
+    fun iconGridJpeg(icons: List<Bitmap>, title: String): ByteArray {
+        val png = iconGrid(icons, title)
+        val bmp = android.graphics.BitmapFactory.decodeByteArray(png, 0, png.size)
+        return bmp.encode(Bitmap.CompressFormat.JPEG, 88)
+    }
+
     private fun fitText(p: Paint, text: String, maxWidth: Float, start: Float) {
         p.textSize = start
         while (p.textSize > 10f && p.measureText(text) > maxWidth) p.textSize -= 2f

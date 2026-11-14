@@ -101,12 +101,16 @@ object IconMapping {
         val result = LinkedHashMap<String, String>()
         val byPkg = filter.items.groupBy({ it.first.packageName }, { it.first to it.second })
         for ((pkg, entries) in byPkg) {
-            result.putIfAbsent("$pkg.png", entries.first().second)
+            // Icono por defecto del paquete: el drawable más frecuente (desempate: el primero).
+            val default = entries.groupingBy { it.second }.eachCount().let { counts ->
+                entries.map { it.second }.distinct().maxBy { counts.getValue(it) }
+            }
+            result.putIfAbsent("$pkg.png", default)
             val distinct = entries.map { it.second }.toSet()
             if (activityIcons && distinct.size > 1) {
                 for ((c, d) in entries) {
                     val cls = c.className ?: continue
-                    if (cls != pkg) result.putIfAbsent("$cls.png", d)
+                    if (cls != pkg && d != default) result.putIfAbsent("$cls.png", d)
                 }
             }
         }
@@ -117,6 +121,8 @@ object IconMapping {
 data class IconMtzOptions(
     val description: ThemeDescription,
     val activityIcons: Boolean = true,
+    /** Modo "MTZ base": tema que ya funciona; se conserva todo salvo `icons`. */
+    val baseMtz: java.io.File? = null,
 )
 
 /**
@@ -180,10 +186,12 @@ object IconMtzBuilder {
             }
             if (written == 0) throw IllegalStateException("No se pudo renderizar ningún icono del pack")
             MtzWriter(out).use { w ->
-                w.add(MtzPaths.DESCRIPTION, options.description.toXml().toByteArray(Charsets.UTF_8))
-                if (tmp != null) tmp.inputStream().buffered().use { w.add(MtzPaths.ICONS, it) }
-                else w.add(MtzPaths.ICONS, mem!!.toByteArray())
-                previews.entries.toSortedMap().forEach { (p, d) -> w.add(p, d) }
+                val base = options.baseMtz
+                if (base != null) w.copyFrom(base, except = setOf(MtzPaths.ICONS))
+                else w.add(MtzPaths.DESCRIPTION, options.description.toXml().toByteArray(Charsets.UTF_8))
+                // `icons` va sin comprimir (STORED), como en los MTZ de referencia.
+                if (tmp != null) w.addStored(MtzPaths.ICONS, tmp) else w.add(MtzPaths.ICONS, mem!!.toByteArray(), stored = true)
+                if (base == null) previews.entries.toSortedMap().forEach { (p, d) -> w.add(p, d) }
             }
             return Result(written, missing.toList())
         } finally {

@@ -53,7 +53,10 @@ data class ThemeDescription(
     }
 
     companion object {
+        /** Valor que escribe zFont 3 en los MTZ de fuente. */
         const val DEFAULT_UI_VERSION = 8
+        /** Valor de IconPack-to-MTZ (MTZ de iconos probado en un POCO F8 Ultra con HyperOS). */
+        const val ICONS_UI_VERSION = 15
 
         /** CDATA seguro: divide cualquier "]]>" del texto. */
         fun cdata(s: String) = "<![CDATA[" + s.replace("]]>", "]]]]><![CDATA[>") + "]]>"
@@ -68,7 +71,7 @@ data class ThemeDescription(
                 runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
             }
             val root = f.newDocumentBuilder().parse(ByteArrayInputStream(xml)).documentElement
-            if (root.tagName != "theme") throw IllegalArgumentException("La raíz de description.xml debe ser <theme>")
+            if (root.tagName != "theme" && root.tagName != "MIUI-Theme") throw IllegalArgumentException("La raíz de description.xml debe ser <theme> o <MIUI-Theme>")
             fun direct(name: String): String? {
                 val nodes = root.childNodes
                 for (i in 0 until nodes.length) {

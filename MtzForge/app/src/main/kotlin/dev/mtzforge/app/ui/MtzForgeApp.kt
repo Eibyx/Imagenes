@@ -68,6 +68,8 @@ fun MtzForgeApp(vm: MainViewModel) {
     val pickFont = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::loadFont) }
     val pickApk = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::loadPackApk) }
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { it?.let(vm::convertFolder) }
+    val pickFontBase = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { u -> vm.setBase(false, u) } }
+    val pickIconBase = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { u -> vm.setBase(true, u) } }
     val pickMtz = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { u -> vm.apply(ApplyMethod.IMPORT_MTZ, u) } }
 
     LaunchedEffect(state.output) { if (state.output != null) showResult = true }
@@ -95,10 +97,12 @@ fun MtzForgeApp(vm: MainViewModel) {
         Column(Modifier.padding(pad).fillMaxSize()) {
             BusyBar(state.busy, state.progress)
             when (Tab.entries[tab]) {
-                Tab.FONTS -> FontScreen(state.font, state.busy, { pickFont.launch(FONT_MIMES) }, vm::updateFont, vm::selectCollectionIndex, vm::buildFont)
+                Tab.FONTS -> FontScreen(state.font, state.busy, { pickFont.launch(FONT_MIMES) }, vm::updateFont, vm::selectCollectionIndex, vm::buildFont,
+                    onPickBase = { pickFontBase.launch(arrayOf("*/*")) }, onClearBase = { vm.setBase(false, null) })
                 Tab.ICONS -> IconScreen(state.icons, state.busy,
                     { pickApk.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream")) },
-                    vm::listInstalledPacks, vm::updateIcons, vm::buildIcons)
+                    vm::listInstalledPacks, vm::updateIcons, vm::buildIcons,
+                    onPickBase = { pickIconBase.launch(arrayOf("*/*")) }, onClearBase = { vm.setBase(true, null) })
                 Tab.FOLDER -> BatchScreen(state.batch, state.busy) { pickFolder.launch(null) }
                 Tab.SETUP -> SetupScreen(shizuku, state.themesVersion,
                     onRequest = vm.shizuku::requestPermission,
