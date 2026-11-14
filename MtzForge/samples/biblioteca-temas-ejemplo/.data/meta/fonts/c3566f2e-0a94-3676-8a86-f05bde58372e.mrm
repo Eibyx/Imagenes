@@ -1,0 +1,49 @@
+{
+    "localId": "c3566f2e-0a94-3676-8a86-f05bde58372e",
+    "onlineId": null,
+    "assemblyId": null,
+    "productId": null,
+    "hash": "53e52bfda268481b2fc464baa91cbc682c98a478",
+    "platform": 8,
+    "size": 3284,
+    "updatedTime": 1700000000000,
+    "version": "1.0",
+    "authors": {
+        "fallback": "Yo"
+    },
+    "designers": {
+        "fallback": "Yo"
+    },
+    "titles": {
+        "fallback": "Forge \"Sans\""
+    },
+    "descriptions": {
+        "fallback": ""
+    },
+    "builtInThumbnails": {
+        "fallback": [
+            "preview_fonts_small_0.png"
+        ]
+    },
+    "builtInPreviews": {
+        "fallback": [
+            "preview_fonts_0.jpg"
+        ]
+    },
+    "thumbnails": [],
+    "previews": [],
+    "parentResources": [
+        {
+            "localId": "c3566f2e-0a94-3676-8a86-f05bde58372e",
+            "resourceCode": "theme",
+            "extraMeta": {},
+            "metaPath": null,
+            "contentPath": null
+        }
+    ],
+    "subResources": [],
+    "extraMeta": {},
+    "metaPath": null,
+    "contentPath": null,
+    "rightsPath": null
+}

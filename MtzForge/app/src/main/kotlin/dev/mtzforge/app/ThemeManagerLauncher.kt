@@ -61,6 +61,21 @@ object ThemeManagerLauncher {
         context.startActivity(i)
     }
 
+    /**
+     * Abre un recurso de la biblioteca local de Temas por su id
+     * (`ViewLocalResource://view.local.resource#<id>`, extras REQUEST_RESOURCE_CODE y
+     * REQUEST_APPLY_EVENT, observados en zFont). No verificado en dispositivo.
+     */
+    fun openLocalResource(context: Context, localId: String, resourceCode: String): Boolean {
+        val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("ViewLocalResource://view.local.resource#$localId"))
+            .setPackage(PKG)
+            .addCategory(Intent.CATEGORY_DEFAULT)
+            .putExtra("REQUEST_RESOURCE_CODE", resourceCode)
+            .putExtra("REQUEST_APPLY_EVENT", true)
+            .addFlags(FLAGS)
+        return startFirst(context, listOf(i))
+    }
+
     private fun startFirst(context: Context, intents: List<Intent>): Boolean {
         for (i in intents) {
             try {

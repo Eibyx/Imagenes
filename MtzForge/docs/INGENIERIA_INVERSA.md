@@ -157,13 +157,18 @@ Todos parten del mismo MTZ (§3.2) y después divergen (`am.d2`):
 | Botón "Abrir Temas de Xiaomi" (ThemeTabActivity → lanzador → ajustes) | ✅ Intent probado con Robolectric; ❓ en dispositivo |
 | Botón "Aplicar con Temas (experimental)" (ApplyThemeForScreenshot) | ✅ Intent probado con Robolectric; ❓ en dispositivo |
 
-Lo que **no** se implementa a propósito: copiar ficheros `.mra` o licencias, peticiones al servidor de zFont, Shizuku/root ni escritura en `Android/data` de otras apps.
+| **v0.2** · Biblioteca local de Temas (`ThemeStore`): `content/`, `meta/*.mrm` (JSON con el esquema de §3.6, hash SHA-1 real), `preview/theme/<id>/`; el padre `theme` y sus hijos comparten id; `rightsPath = null` | ✅ Tests JVM (JSON validado con Python) y Robolectric (instalación directa en API 28). ❓ Si Temas la acepta sin licencia |
+| **v0.2** · Shizuku: UserService AIDL (`FileService`) restringido a las carpetas de Temas, más `am force-stop` de Temas | 🟡 Compila y sobrevive a R8. ❓ Sin probar en dispositivo |
+| **v0.2** · Los 4 métodos (1 biblioteca de fuentes, 2 paquete MTZ, 3 tema combinado fuente+iconos, 4 importar MTZ) | ✅ Lógica y enrutado de intents (tests). ❓ En dispositivo |
+| **v0.2** · Conversión por lotes de una carpeta (SAF, hasta 4 niveles de subcarpetas) | 🟡 Compila; ❓ dispositivo |
+
+Lo que **no** se implementa a propósito: crear, copiar o descargar ficheros `.mra` o licencias, peticiones al servidor de zFont, uso de los componentes de tema incluidos en el APK de zFont, root, el truco de ruta `\u200bAndroid` y la ejecución libre de comandos con Shizuku.
 
 ---
 
 ## 7. Qué hay que probar en un dispositivo Xiaomi (lista de comprobación)
 
-1. ❓ Instalar `dist/MtzForge-0.1.0-debug.apk` y convertir una fuente TTF. Probar a importarla manualmente: abrir el `.mtz` desde el gestor de archivos con Temas, o usar la opción de importar de Temas si tu versión la tiene (❓ la ruta exacta del menú no se ha verificado). Esta vía no depende de intents internos.
+1. ❓ Instalar `dist/MtzForge-0.2.0.apk` y convertir una fuente TTF. Probar a importarla manualmente: abrir el `.mtz` desde el gestor de archivos con Temas, o usar la opción de importar de Temas si tu versión la tiene (❓ la ruta exacta del menú no se ha verificado). Esta vía no depende de intents internos.
 2. ❓ Botón **"Aplicar con Temas (experimental)"**: comprobar si `ApplyThemeForScreenshot` existe, si está exportada en tu versión y si **acepta una ruta en `Download/`**. zFont probablemente le pasa una ruta dentro de `.data` (§4, método 2). Si Temas rechaza la ruta, la vía sin root disponible es la importación manual del punto 1.
 3. ❓ Tras aplicar, puede hacer falta **reiniciar** (zFont también lo indica).
 4. ❓ Comprobar si HyperOS exige `uiVersion` > 8 o una firma para fuentes de terceros. Algunas regiones, como la global, restringen las fuentes no oficiales.
@@ -186,3 +191,9 @@ adb logcat | grep -i -E "thememanager|ApplyTheme"
 - `samples/ForgeTestSans.mtz` (sin vistas previas) y `samples/ForgeTestSans-con-previews.mtz` (con vistas previas renderizadas por el Canvas nativo de Android en Robolectric).
 - `samples/ForgeSampleIcons.mtz`: 19 iconos PNG reales de 168×168 generados con el `appfilter.xml` del pack de muestra.
 - `sample-iconpack/`: APK de pack de iconos de prueba (`dist/ForgeSampleIcons-debug.apk`). Incluye a propósito una entrada inválida y un drawable inexistente.
+
+## 9. Pruebas pendientes de la v0.2 (Shizuku)
+1. ❓ Con Shizuku activo, comprobar en Ajustes que el estado pasa a «Shizuku listo».
+2. ❓ Método 1: verificar que se crea `Android/data/com.android.thememanager/files/MIUI/theme/.data/content/fonts/<id>.mrc` y si la fuente aparece en Temas → Fuentes. Si aparece pero no se aplica, lo más probable es que haga falta licencia.
+3. ❓ Método 2 con Shizuku: comprobar si `ApplyThemeForScreenshot` acepta la ruta `.data/mtzforge.mtz`.
+4. ❓ Métodos 3 y 4 con un MTZ que contenga iconos.
