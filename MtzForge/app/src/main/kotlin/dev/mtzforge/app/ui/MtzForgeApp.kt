@@ -105,7 +105,7 @@ fun MtzForgeApp(vm: MainViewModel) {
                     onOpenShizuku = { vm.shizuku.openShizukuApp() },
                     onRefresh = vm.shizuku::refresh,
                     onOpenThemes = vm::openThemes,
-                    onImportMtz = { pickMtz.launch(arrayOf("*/*")) },
+                    onImportMtz = { pickMtz.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream", "*/*")) },
                     importEnabled = shizuku == ShizukuManager.Status.READY && !state.busy)
             }
         }
@@ -121,7 +121,7 @@ fun MtzForgeApp(vm: MainViewModel) {
                     ctx.startActivity(Intent.createChooser(i, "Compartir MTZ"))
                 },
                 onOpenThemes = vm::openThemes,
-                onApply = { m -> if (m == ApplyMethod.IMPORT_MTZ) pickMtz.launch(arrayOf("*/*")) else vm.apply(m) },
+                onApply = { m -> if (m == ApplyMethod.IMPORT_MTZ) pickMtz.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream", "*/*")) else vm.apply(m) },
             )
         }
     }

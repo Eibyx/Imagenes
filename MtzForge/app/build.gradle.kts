@@ -12,8 +12,8 @@ android {
         applicationId = "dev.mtzforge.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     // Firma de publicación opcional: se activa solo si existen las variables

@@ -33,11 +33,11 @@ class XiaomiInstaller(private val context: Context, private val shizuku: Shizuku
         get() = File(Environment.getExternalStorageDirectory(),
             if (Build.VERSION.SDK_INT >= 30) ThemeStore.DATA_DIR_API30 else ThemeStore.DATA_DIR_LEGACY)
 
-    /** Métodos 1, 3 y 4: escribe la estructura .data y abre el recurso en Temas. */
-    suspend fun installToLibrary(mtz: ByteArray, openAs: String): Outcome {
+    /** Métodos 1, 3 y 4: escribe la estructura .data (en streaming) y abre el recurso en Temas. */
+    suspend fun installToLibrary(mtz: File, openAs: String): Outcome {
         val install = ThemeStore.fromMtz(mtz, dataDir.absolutePath)
         val writer = writer()
-        install.files.forEach { (rel, data) -> writer.write(File(dataDir, rel), data) }
+        install.writeAll { rel, input -> writer.write(File(dataDir, rel), input) }
         writer.forceStopThemes()
         val code = if (openAs == "fonts" && !install.hasFonts) "theme" else openAs
         val launched = ThemeManagerLauncher.openLocalResource(context, install.localId, code) ||
@@ -55,7 +55,7 @@ class XiaomiInstaller(private val context: Context, private val shizuku: Shizuku
     suspend fun applyMtzPackage(mtz: File, downloadsPath: String?): Outcome {
         val path = if (shizuku.status.value == ShizukuManager.Status.READY || Build.VERSION.SDK_INT < 29) {
             val target = File(dataDir, "mtzforge.mtz")
-            writer().write(target, mtz.readBytes())
+            mtz.inputStream().use { writer().write(target, it) }
             target.absolutePath
         } else downloadsPath ?: throw IllegalStateException("Exporta primero el MTZ a Descargas o activa Shizuku")
         ThemeManagerLauncher.applyMtz(context, path).getOrThrow()
@@ -63,7 +63,7 @@ class XiaomiInstaller(private val context: Context, private val shizuku: Shizuku
     }
 
     private interface Writer {
-        fun write(target: File, data: ByteArray)
+        fun write(target: File, input: java.io.InputStream)
         fun forceStopThemes()
     }
 
@@ -74,18 +74,18 @@ class XiaomiInstaller(private val context: Context, private val shizuku: Shizuku
 
     /** Android 8–9: con WRITE_EXTERNAL_STORAGE se puede escribir directamente. */
     private object DirectWriter : Writer {
-        override fun write(target: File, data: ByteArray) {
+        override fun write(target: File, input: java.io.InputStream) {
             target.parentFile?.mkdirs()
-            target.writeBytes(data)
+            target.outputStream().use { input.copyTo(it) }
         }
         override fun forceStopThemes() {}
     }
 
     private inner class ShizukuWriter(private val svc: IFileService) : Writer {
-        override fun write(target: File, data: ByteArray) {
+        override fun write(target: File, input: java.io.InputStream) {
             val tmp = File.createTempFile("w", ".bin", context.cacheDir)
             try {
-                tmp.writeBytes(data)
+                tmp.outputStream().use { input.copyTo(it) }
                 ParcelFileDescriptor.open(tmp, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
                     check(svc.writeFile(target.absolutePath, pfd)) { "No se pudo escribir ${target.name}" }
                 }

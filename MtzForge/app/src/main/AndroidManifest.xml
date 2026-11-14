@@ -9,6 +9,11 @@
     <queries>
         <package android:name="com.android.thememanager" />
         <package android:name="moe.shizuku.privileged.api" />
+        <!-- Para la opción "Solo apps instaladas": apps con icono en el lanzador -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <intent><action android:name="org.adw.launcher.THEMES" /></intent>
         <intent><action android:name="com.novalauncher.THEME" /></intent>
         <intent><action android:name="com.gau.go.launcherex.theme" /></intent>

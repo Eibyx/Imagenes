@@ -1,9 +1,10 @@
 package dev.mtzforge.core
 
-import java.io.ByteArrayInputStream
+import java.io.File
+import java.io.InputStream
+import java.util.zip.ZipFile
 import java.security.MessageDigest
 import java.util.UUID
-import java.util.zip.ZipInputStream
 
 /**
  * Genera la estructura de la biblioteca local de la app Temas (`MIUI/theme/.data`)
@@ -27,69 +28,95 @@ object ThemeStore {
 
     data class Component(val resourceCode: String, val mtzPath: String)
 
-    data class Install(
+    /** Origen de un fichero a instalar: bytes pequeños generados o una entrada del MTZ (se lee en streaming). */
+    sealed class Source {
+        class Bytes(val data: ByteArray) : Source()
+        class Entry(val name: String, val size: Long) : Source()
+    }
+
+    class Install(
         val localId: String,
         val title: String,
-        /** Ruta relativa a `.data` -> contenido. */
-        val files: Map<String, ByteArray>,
+        /** MTZ de origen (las fuentes [Source.Entry] se leen de aquí). */
+        val mtz: File,
+        /** Ruta relativa a `.data` -> origen del contenido. */
+        val files: Map<String, Source>,
         val components: List<Component>,
         val skipped: List<String>,
     ) {
         val hasFonts get() = components.any { it.resourceCode == "fonts" }
         val hasIcons get() = components.any { it.resourceCode == "icons" }
+
+        /** Copia cada fichero mediante [sink] sin cargar componentes grandes en memoria. */
+        fun writeAll(sink: (relPath: String, input: InputStream) -> Unit) {
+            ZipFile(mtz).use { z ->
+                for ((rel, src) in files) when (src) {
+                    is Source.Bytes -> sink(rel, src.data.inputStream())
+                    is Source.Entry -> z.getInputStream(z.getEntry(src.name)).use { sink(rel, it) }
+                }
+            }
+        }
+
+        /** Solo para tests / ficheros pequeños. */
+        fun read(rel: String): ByteArray? = when (val s = files[rel]) {
+            null -> null
+            is Source.Bytes -> s.data
+            is Source.Entry -> ZipFile(mtz).use { z -> z.getInputStream(z.getEntry(s.name)).use { it.readBytes() } }
+        }
+    }
+
+    /** Variante en memoria (tests): escribe el MTZ en un temporal. */
+    fun fromMtz(mtz: ByteArray, dataDirAbsolute: String, now: Long = System.currentTimeMillis()): Install {
+        val tmp = File.createTempFile("mtz", ".mtz").apply { deleteOnExit(); writeBytes(mtz) }
+        return fromMtz(tmp, dataDirAbsolute, now)
     }
 
     /**
+     * Analiza el MTZ en streaming (memoria constante, válido para MTZ de cientos de MB).
      * @param dataDirAbsolute ruta absoluta de `.data` en el dispositivo; se usa en
      *        `contentPath` del recurso tema (como hace el formato observado).
      */
-    fun fromMtz(mtz: ByteArray, dataDirAbsolute: String, now: Long = System.currentTimeMillis()): Install {
-        val entries = LinkedHashMap<String, ByteArray>()
-        ZipInputStream(ByteArrayInputStream(mtz)).use { z ->
-            while (true) {
-                val e = z.nextEntry ?: break
-                if (!e.isDirectory) entries[e.name] = z.readBytes()
-            }
-        }
-        val descBytes = entries[MtzPaths.DESCRIPTION] ?: throw IllegalArgumentException("El MTZ no contiene description.xml")
-        val desc = ThemeDescription.parse(descBytes)
-        val id = UUID.nameUUIDFromBytes(sha1(mtz).toByteArray()).toString()
+    fun fromMtz(mtz: File, dataDirAbsolute: String, now: Long = System.currentTimeMillis()): Install = ZipFile(mtz).use { z ->
+        val entries = z.entries().toList().filter { !it.isDirectory }
+        val descEntry = z.getEntry(MtzPaths.DESCRIPTION) ?: throw IllegalArgumentException("El MTZ no contiene description.xml")
+        val desc = ThemeDescription.parse(z.getInputStream(descEntry).use { it.readBytes() })
+        val mtzHash = sha1(mtz.inputStream())
+        val id = UUID.nameUUIDFromBytes(mtzHash.toByteArray()).toString()
         val platform = if (desc.uiVersion > 0) desc.uiVersion else ThemeDescription.DEFAULT_UI_VERSION
 
-        val files = LinkedHashMap<String, ByteArray>()
-        val previews = entries.keys.filter { it.startsWith(MtzPaths.PREVIEW_DIR) && !it.endsWith("/") }
-            .map { it.substringAfterLast('/') }.distinct().sorted()
-        entries.filterKeys { it.startsWith(MtzPaths.PREVIEW_DIR) }.forEach { (p, d) ->
-            files["preview/theme/$id/${p.substringAfterLast('/')}"] = d
-        }
+        val files = LinkedHashMap<String, Source>()
+        val previewEntries = entries.filter { it.name.startsWith(MtzPaths.PREVIEW_DIR) }
+        val previews = previewEntries.map { it.name.substringAfterLast('/') }.distinct().sorted()
+        previewEntries.forEach { e -> files["preview/theme/$id/${e.name.substringAfterLast('/')}"] = Source.Entry(e.name, e.size) }
 
         val components = ArrayList<Component>()
         val skipped = ArrayList<String>()
-        for ((path, data) in entries) {
+        for (e in entries) {
+            val path = e.name
             if (path == MtzPaths.DESCRIPTION || path.startsWith(MtzPaths.PREVIEW_DIR)) continue
             val code = MtzPaths.RESOURCE_CODES[path]
-            if (code == null) { skipped += path; continue }
-            if (components.any { it.resourceCode == code }) { skipped += path; continue }
+            if (code == null || components.any { it.resourceCode == code }) { skipped += path; continue }
             components += Component(code, path)
-            files["content/$code/$id.mrc"] = data
+            files["content/$code/$id.mrc"] = Source.Entry(path, e.size)
+            val hash = z.getInputStream(e).use { sha1(it) }
             val (thumbs, prevs) = previewsFor(code, previews)
-            files["meta/$code/$id.mrm"] = meta(
-                id = id, desc = desc, hash = sha1(data), size = data.size.toLong(), platform = platform, now = now,
+            files["meta/$code/$id.mrm"] = Source.Bytes(meta(
+                id = id, desc = desc, hash = hash, size = e.size, platform = platform, now = now,
                 thumbnails = thumbs, previews = prevs,
                 parents = listOf(ref(id, "theme")), children = emptyList(), contentPath = null,
-            ).toByteArray(Charsets.UTF_8)
+            ).toByteArray(Charsets.UTF_8))
         }
         if (components.isEmpty()) throw IllegalArgumentException("El MTZ no contiene componentes reconocidos")
 
         // Recurso padre "theme": contenido vacío, hash/tamaño del MTZ completo.
-        files["content/theme/$id.mrc"] = ByteArray(0)
-        files["meta/theme/$id.mrm"] = meta(
-            id = id, desc = desc, hash = sha1(mtz), size = mtz.size.toLong(), platform = platform, now = now,
+        files["content/theme/$id.mrc"] = Source.Bytes(ByteArray(0))
+        files["meta/theme/$id.mrm"] = Source.Bytes(meta(
+            id = id, desc = desc, hash = mtzHash, size = mtz.length(), platform = platform, now = now,
             thumbnails = previews.filter { "small" in it.lowercase() }, previews = previews.filter { "small" !in it.lowercase() },
             parents = emptyList(), children = components.map { ref(id, it.resourceCode) },
             contentPath = "/system/..${dataDirAbsolute.trimEnd('/')}/content/theme/$id.mrc",
-        ).toByteArray(Charsets.UTF_8)
-        return Install(id, desc.title, files, components, skipped)
+        ).toByteArray(Charsets.UTF_8))
+        Install(id, desc.title, mtz, files, components, skipped)
     }
 
     private fun previewsFor(code: String, names: List<String>): Pair<List<String>, List<String>> {
@@ -132,8 +159,13 @@ object ThemeStore {
         "rightsPath" to null,
     ).render(indent = 4)
 
-    fun sha1(data: ByteArray): String =
-        MessageDigest.getInstance("SHA-1").digest(data).joinToString("") { "%02x".format(it) }
+    fun sha1(data: ByteArray): String = sha1(data.inputStream())
+
+    fun sha1(input: InputStream): String {
+        val md = MessageDigest.getInstance("SHA-1")
+        input.use { s -> val buf = ByteArray(64 * 1024); while (true) { val n = s.read(buf); if (n < 0) break; md.update(buf, 0, n) } }
+        return md.digest().joinToString("") { "%02x".format(it) }
+    }
 }
 
 /** Escritor JSON mínimo (sin dependencias). */
@@ -191,21 +223,23 @@ object Json {
 
 /** Combina varios MTZ (p. ej. fuente + iconos) en un MTZ de tema completo. */
 object ThemeMerger {
-    fun merge(parts: List<ByteArray>, description: ThemeDescription, out: java.io.OutputStream): List<String> {
-        val taken = LinkedHashMap<String, ByteArray>()
+    /** Combina leyendo cada MTZ en streaming. Si una ruta se repite, gana el primer MTZ. */
+    fun merge(parts: List<File>, description: ThemeDescription, out: java.io.OutputStream): List<String> {
         val dropped = ArrayList<String>()
-        for (p in parts) ZipInputStream(ByteArrayInputStream(p)).use { z ->
-            while (true) {
-                val e = z.nextEntry ?: break
-                if (e.isDirectory || e.name == MtzPaths.DESCRIPTION) continue
-                if (e.name in taken) dropped += e.name else taken[e.name] = z.readBytes()
-            }
-        }
-        if (taken.keys.none { it in MtzPaths.RESOURCE_CODES }) throw IllegalArgumentException("Nada que combinar")
+        val seen = HashSet<String>()
+        var recognized = false
         MtzWriter(out).use { w ->
             w.add(MtzPaths.DESCRIPTION, description.toXml().toByteArray(Charsets.UTF_8))
-            taken.toSortedMap().forEach { (k, v) -> w.add(k, v) }
+            for (p in parts) ZipFile(p).use { z ->
+                for (e in z.entries()) {
+                    if (e.isDirectory || e.name == MtzPaths.DESCRIPTION) continue
+                    if (!seen.add(e.name)) { dropped += e.name; continue }
+                    if (e.name in MtzPaths.RESOURCE_CODES) recognized = true
+                    z.getInputStream(e).use { w.add(e.name, it) }
+                }
+            }
         }
+        if (!recognized) throw IllegalArgumentException("Nada que combinar")
         return dropped
     }
 }

@@ -209,6 +209,7 @@ fun IconScreen(
             OutlinedTextField(icons.size.toString(), { v -> onChange { it.copy(size = v.filter(Char::isDigit).take(3).toIntOrNull() ?: 0) } },
                 label = { Text("Tamaño de icono (px)") }, supportingText = { Text("168 px observado en temas MIUI") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+            SwitchRow("Solo apps instaladas", "Incluye solo los iconos de tus apps (${icons.installedMatches}); el MTZ es mucho más pequeño", icons.installedOnly) { v -> onChange { it.copy(installedOnly = v) } }
             SwitchRow("Iconos por actividad", "Crea <actividad>.png cuando una app usa iconos distintos", icons.activityIcons) { v -> onChange { it.copy(activityIcons = v) } }
             Button(onClick = onBuild, enabled = !busy, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Generar MTZ de iconos") }
         }

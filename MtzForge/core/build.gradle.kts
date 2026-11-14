@@ -21,6 +21,8 @@ dependencies {
 
 tasks.test {
     useJUnit()
+    // Heap pequeño a propósito: los tests de MTZ enormes deben pasar en streaming.
+    maxHeapSize = "96m"
     // Los MTZ generados por los tests quedan aquí para inspección manual.
     systemProperty("mtzforge.samples", rootProject.file("samples").absolutePath)
 }

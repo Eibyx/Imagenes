@@ -50,6 +50,8 @@ data class IconUi(
     val title: String = "",
     val size: Int = 168,
     val activityIcons: Boolean = true,
+    val installedOnly: Boolean = true,
+    val installedMatches: Int = 0,
     val sample: List<ImageBitmap> = emptyList(),
 )
 
@@ -226,9 +228,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val filter = pack.loadAppFilter()
         val sample = filter.drawables.asSequence().mapNotNull { pack.render(it, 144) }.take(12).map { it.asImageBitmap() }.toList()
         iconPack = pack
+        val mine = IconPack.launchablePackages(ctx)
+        val matches = filter.items.map { it.first.packageName }.toSet().count { it in mine }
         _state.update {
-            it.copy(icons = it.icons.copy(label = pack.label, packageName = pack.packageName,
-                summary = "${filter.items.size} entradas · ${filter.drawables.size} iconos únicos",
+            it.copy(icons = it.icons.copy(label = pack.label, packageName = pack.packageName, installedMatches = matches,
+                summary = "${filter.items.size} entradas · ${filter.drawables.size} iconos únicos · cubre $matches de tus apps",
                 title = pack.label, sample = sample))
         }
     }
@@ -238,7 +242,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val ui = _state.value.icons
         val title = ui.title.trim().ifEmpty { pack.label }
         val size = ui.size.coerceIn(48, 512)
-        val filter = pack.loadAppFilter()
+        val full = pack.loadAppFilter()
+        val filter = if (ui.installedOnly) {
+            val mine = IconPack.launchablePackages(ctx)
+            full.copy(items = full.items.filter { it.first.packageName in mine })
+        } else full
+        if (filter.items.isEmpty()) error("El pack no tiene iconos para ninguna de las apps instaladas. Desactiva «Solo apps instaladas».")
         val sample = filter.drawables.asSequence().mapNotNull { pack.render(it, 144) }.take(24).toList()
         val previews = Previews(mapOf(MtzPaths.PREVIEW_ICONS to PreviewRenderer.iconGrid(sample, title)))
         val desc = ThemeDescription(title = title, description = "Iconos convertidos desde ${pack.packageName} con MTZ Forge")
@@ -263,7 +272,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val result = when (method) {
             ApplyMethod.FONT_LIBRARY -> {
                 val src = currentOrLast(OutputKind.FONT, lastFont) ?: error("Genera primero un MTZ de fuente")
-                installer.installToLibrary(src.readBytes(), "fonts")
+                installer.installToLibrary(src, "fonts")
             }
             ApplyMethod.MTZ_PACKAGE -> {
                 val o = _state.value.output ?: error("Genera primero un MTZ")
@@ -275,17 +284,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val title = listOfNotNull(_state.value.font.title.takeIf { lastFont.exists() && it.isNotBlank() },
                     _state.value.icons.title.takeIf { lastIcons.exists() && it.isNotBlank() }).joinToString(" + ").ifEmpty { "Tema MTZ Forge" }
                 val tmp = File(ctx.cacheDir, "theme_${System.nanoTime()}.mtz")
-                tmp.outputStream().use { ThemeMerger.merge(parts.map { it.readBytes() }, ThemeDescription(title = title, description = "Tema combinado con MTZ Forge"), it) }
+                tmp.outputStream().buffered().use { ThemeMerger.merge(parts, ThemeDescription(title = title, description = "Tema combinado con MTZ Forge"), it) }
                 val out = finish(tmp, title, OutputKind.THEME, listOf("Combinado: " + parts.joinToString { if (it == lastFont) "fuente" else "iconos" }))
                 _state.update { it.copy(output = out) }
-                installer.installToLibrary(out.cached.readBytes(), "theme")
+                installer.installToLibrary(out.cached, "theme")
             }
             ApplyMethod.IMPORT_MTZ -> {
                 val uri = importUri ?: error("Elige un fichero .mtz")
-                val bytes = ctx.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-                val rep = MtzInspector.inspect(bytes)
+                val file = File(ctx.cacheDir, "import.mtz")
+                ctx.contentResolver.openInputStream(uri)!!.use { input -> file.outputStream().use { input.copyTo(it) } }
+                if (!dev.mtzforge.core.ApkAppFilter.isZip(file)) {
+                    file.delete()
+                    error("El fichero elegido («${displayName(uri) ?: "?"}») no es un MTZ. Elige un .mtz, por ejemplo de Descargas/MTZ Forge.")
+                }
+                val rep = MtzInspector.inspect(file)
                 if (!rep.isValid) error("MTZ no válido: ${rep.errors.joinToString()}")
-                installer.installToLibrary(bytes, if (rep.components.values.toSet() == setOf("fonts")) "fonts" else "theme")
+                installer.installToLibrary(file, if (rep.components.values.toSet() == setOf("fonts")) "fonts" else "theme")
             }
         }
         _state.update { it.copy(message = result.message) }
@@ -310,7 +324,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val size = tmp.length()
         if (keep) tmp.copyTo(cached, overwrite = true)
         tmp.delete()
-        val details = listOf("Componentes: ${rep.components.values.joinToString()} · %.1f KB".format(size / 1024.0)) + notes + rep.warnings
+        val details = (listOf("Componentes: ${rep.components.values.joinToString()} · %.1f KB".format(size / 1024.0)) + notes + rep.warnings).distinct()
         return Output(kind, title, exported, cached, details)
     }
 

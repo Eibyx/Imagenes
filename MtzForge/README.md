@@ -38,14 +38,14 @@ core/            Kotlin/JVM puro: SFNT, description.xml, MTZ, appfilter→iconos
 app/             App Compose + Material 3, Shizuku (AIDL UserService), tests Robolectric
 sample-iconpack/ Pack de iconos de prueba con diseños propios
 samples/         MTZ y biblioteca .data de ejemplo generados por los tests
-dist/            MtzForge-0.2.0.apk (release minificado, firma debug) y pack de prueba
+dist/            MtzForge-0.3.0.apk (release minificado, firma debug) y pack de prueba
 docs/            Informe del análisis y capturas
 ```
 
 ## Compilar
 ```sh
 # JDK 17+ y Android SDK 35 (local.properties: sdk.dir=...)
-./gradlew :core:test :app:testDebugUnitTest     # 31 tests
+./gradlew :core:test :app:testDebugUnitTest     # 36 tests
 ./gradlew :app:assembleRelease                  # firma debug salvo que definas MTZFORGE_KEYSTORE*
 ```
 GitHub Actions (`.github/workflows/mtzforge.yml`) ejecuta los tests y publica los APK como artefactos. Para firmarlos con tu propia clave, añade los secrets `MTZFORGE_KEYSTORE_BASE64`, `MTZFORGE_KEYSTORE_PASSWORD`, `MTZFORGE_KEY_ALIAS` y `MTZFORGE_KEY_PASSWORD`.

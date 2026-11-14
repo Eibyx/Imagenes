@@ -111,9 +111,10 @@ data class MtzReport(
 
 /** Inspección/validación estructural de un MTZ (propio o ajeno). */
 object MtzInspector {
+    /** Lee el fichero en streaming: nunca carga en memoria el componente `icons` completo. */
     fun inspect(file: File): MtzReport = ZipFile(file).use { z ->
-        val map = LinkedHashMap<String, () -> ByteArray>()
-        for (e in z.entries()) if (!e.isDirectory) map[e.name] = { z.getInputStream(e).use { it.readBytes() } }
+        val map = LinkedHashMap<String, () -> java.io.InputStream>()
+        for (e in z.entries()) if (!e.isDirectory) map[e.name] = { z.getInputStream(e) }
         val all = z.entries().toList().map { it.name }
         inspect(all, map)
     }
@@ -128,15 +129,16 @@ object MtzInspector {
                 if (!e.isDirectory) data[e.name] = zin.readBytes()
             }
         }
-        return inspect(all, data.mapValues { (_, v) -> { v } })
+        return inspect(all, data.mapValues { (_, v) -> { ByteArrayInputStream(v) } })
     }
 
-    private fun inspect(all: List<String>, files: Map<String, () -> ByteArray>): MtzReport {
+    private fun inspect(all: List<String>, files: Map<String, () -> java.io.InputStream>): MtzReport {
         val errors = ArrayList<String>()
         val warnings = ArrayList<String>()
+        fun read(open: () -> java.io.InputStream) = open().use { it.readBytes() }
         all.filter { it.startsWith("/") || it.contains("..") }.forEach { errors += "Ruta insegura en el ZIP: $it" }
         val desc = files[MtzPaths.DESCRIPTION]?.let {
-            runCatching { ThemeDescription.parse(it()) }.onFailure { e -> errors += "description.xml inválido: ${e.message}" }.getOrNull()
+            runCatching { ThemeDescription.parse(read(it)) }.onFailure { e -> errors += "description.xml inválido: ${e.message}" }.getOrNull()
         } ?: run {
             if (MtzPaths.DESCRIPTION !in files) errors += "Falta description.xml en la raíz"
             null
@@ -145,13 +147,13 @@ object MtzInspector {
         files.keys.forEach { p -> MtzPaths.RESOURCE_CODES[p]?.let { components[p] = it } }
         var fontName: String? = null
         files[MtzPaths.FONT]?.let {
-            runCatching { SfntFont.parse(it()) }
+            runCatching { SfntFont.parse(read(it)) }
                 .onSuccess { f -> fontName = f.displayName; warnings += f.warnings() }
                 .onFailure { e -> errors += "${MtzPaths.FONT} no es una fuente válida: ${e.message}" }
         }
         var icons = 0
         files[MtzPaths.ICONS]?.let {
-            runCatching { IconsArchive.list(it()) }
+            runCatching { it().use { s -> IconsArchive.list(s) } }
                 .onSuccess { names ->
                     icons = names.count { n -> n.startsWith(IconsArchive.DRAWABLE_DIR) && n.endsWith(".png") }
                     if (icons == 0) warnings += "El componente 'icons' no contiene iconos en ${IconsArchive.DRAWABLE_DIR}"
@@ -168,10 +170,12 @@ object MtzInspector {
 object IconsArchive {
     const val DRAWABLE_DIR = "res/drawable-xxhdpi/"
 
-    fun list(bytes: ByteArray): List<String> = buildList {
-        ZipInputStream(ByteArrayInputStream(bytes)).use { z ->
-            while (true) { val e = z.nextEntry ?: break; add(e.name) }
-        }
+    fun list(bytes: ByteArray): List<String> = list(ByteArrayInputStream(bytes))
+
+    /** Lista las entradas leyendo en streaming (memoria constante). */
+    fun list(input: java.io.InputStream): List<String> = buildList {
+        val z = ZipInputStream(input.buffered())
+        while (true) { val e = z.nextEntry ?: break; add(e.name) }
     }
 
 }

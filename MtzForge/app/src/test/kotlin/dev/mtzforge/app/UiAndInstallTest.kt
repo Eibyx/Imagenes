@@ -109,7 +109,8 @@ class InstallerTest {
         val installer = XiaomiInstaller(app, shizuku)
         @Suppress("DEPRECATION")
         assertEquals(File(Environment.getExternalStorageDirectory(), "MIUI/theme/.data"), installer.dataDir)
-        val r = installer.installToLibrary(mtz, "fonts")
+        val mtzFile = File(app.cacheDir, "in.mtz").apply { writeBytes(mtz) }
+        val r = installer.installToLibrary(mtzFile, "fonts")
         val data = installer.dataDir
         val contents = data.walkTopDown().filter { it.isFile }.map { it.relativeTo(data).path }.toList()
         assertTrue(contents.toString(), contents.any { it.startsWith("content/fonts/") && it.endsWith(".mrc") })
@@ -119,5 +120,29 @@ class InstallerTest {
         assertTrue(i.dataString!!.startsWith("ViewLocalResource://view.local.resource#"))
         assertEquals("fonts", i.getStringExtra("REQUEST_RESOURCE_CODE"))
         assertTrue(r.launched)
+    }
+}
+
+/** Carga del pack de muestra real desde fichero y desde un paquete .apks (base.apk dentro). */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
+class IconPackLoadTest {
+    private val apk = File("../dist/ForgeSampleIcons-debug.apk")
+
+    @Test fun loadsAppFilterFromApkFile() {
+        val app = RuntimeEnvironment.getApplication()
+        val pack = IconPack.fromApkUri(app, android.net.Uri.fromFile(apk))
+        assertEquals("dev.mtzforge.sampleicons", pack.packageName)
+        val filter = pack.loadAppFilter()
+        assertEquals(17, filter.items.size) // 16 válidas + 1 con drawable inexistente; la inválida se ignora
+        val bmp = pack.render("ic_camera", 168)
+        assertEquals(168, bmp!!.width)
+    }
+
+    @Test fun rejectsNonApkWithClearMessage() {
+        val app = RuntimeEnvironment.getApplication()
+        val ttf = File("../core/src/test/resources/fonts/ForgeTestSans-Regular.ttf")
+        val e = runCatching { IconPack.fromApkUri(app, android.net.Uri.fromFile(ttf)) }.exceptionOrNull()!!
+        assertEquals("El fichero elegido no es un APK", e.message)
     }
 }

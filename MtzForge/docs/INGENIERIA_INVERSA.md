@@ -168,7 +168,7 @@ Lo que **no** se implementa a propósito: crear, copiar o descargar ficheros `.m
 
 ## 7. Qué hay que probar en un dispositivo Xiaomi (lista de comprobación)
 
-1. ❓ Instalar `dist/MtzForge-0.2.0.apk` y convertir una fuente TTF. Probar a importarla manualmente: abrir el `.mtz` desde el gestor de archivos con Temas, o usar la opción de importar de Temas si tu versión la tiene (❓ la ruta exacta del menú no se ha verificado). Esta vía no depende de intents internos.
+1. ❓ Instalar `dist/MtzForge-0.3.0.apk` y convertir una fuente TTF. Probar a importarla manualmente: abrir el `.mtz` desde el gestor de archivos con Temas, o usar la opción de importar de Temas si tu versión la tiene (❓ la ruta exacta del menú no se ha verificado). Esta vía no depende de intents internos.
 2. ❓ Botón **"Aplicar con Temas (experimental)"**: comprobar si `ApplyThemeForScreenshot` existe, si está exportada en tu versión y si **acepta una ruta en `Download/`**. zFont probablemente le pasa una ruta dentro de `.data` (§4, método 2). Si Temas rechaza la ruta, la vía sin root disponible es la importación manual del punto 1.
 3. ❓ Tras aplicar, puede hacer falta **reiniciar** (zFont también lo indica).
 4. ❓ Comprobar si HyperOS exige `uiVersion` > 8 o una firma para fuentes de terceros. Algunas regiones, como la global, restringen las fuentes no oficiales.
