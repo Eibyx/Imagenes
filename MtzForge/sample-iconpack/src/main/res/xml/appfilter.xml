@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <iconback img1="iconback" />
+    <iconmask img1="iconmask" />
+    <iconupon img1="iconupon" />
+    <scale factor="0.85" />
+    <item component="ComponentInfo{com.android.thememanager/com.android.thememanager.ThemeResourceTabActivity}" drawable="ic_themes" />
+    <item component="ComponentInfo{com.android.camera/.Camera}" drawable="ic_camera" />
+    <item component="ComponentInfo{com.miui.gallery/.activity.HomePageActivity}" drawable="ic_gallery" />
+    <item component="ComponentInfo{com.android.contacts/.activities.PeopleActivity}" drawable="ic_contacts" />
+    <item component="ComponentInfo{com.android.contacts/com.android.contacts.activities.TwelveKeyDialer}" drawable="ic_phone" />
+    <item component="ComponentInfo{com.android.mms/.ui.MmsTabActivity}" drawable="ic_messages" />
+    <item component="ComponentInfo{com.google.android.apps.messaging/.ui.ConversationListActivity}" drawable="ic_messages" />
+    <item component="ComponentInfo{com.android.settings/.Settings}" drawable="ic_settings" />
+    <item component="ComponentInfo{com.android.settings/.MainSettings}" drawable="ic_settings" />
+    <item component="ComponentInfo{com.android.deskclock/.DeskClockTabActivity}" drawable="ic_clock" />
+    <item component="ComponentInfo{com.miui.calculator/.cal.CalculatorActivity}" drawable="ic_calculator" />
+    <item component="ComponentInfo{com.android.chrome/com.google.android.apps.chrome.Main}" drawable="ic_browser" />
+    <item component="ComponentInfo{com.google.android.youtube/com.google.android.youtube.app.honeycomb.Shell$HomeActivity}" drawable="ic_video" />
+    <item component="ComponentInfo{com.whatsapp/.Main}" drawable="ic_chat" />
+    <item component="ComponentInfo{com.miui.securitycenter/com.miui.securityscan.MainActivity}" drawable="ic_security" />
+    <item component="ComponentInfo{com.mi.android.globalFileexplorer/com.android.fileexplorer.FileExplorerTabActivity}" drawable="ic_files" />
+    <!-- Entrada inválida a propósito: el conversor debe ignorarla -->
+    <item component=":LAUNCHER_ACTION_APP_DRAWER" drawable="ic_settings" />
+    <!-- Drawable inexistente a propósito: debe aparecer como "no encontrado" -->
+    <item component="ComponentInfo{com.example.missing/.Main}" drawable="ic_does_not_exist" />
+</resources>

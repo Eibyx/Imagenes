@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MTZ Forge</string>
+    <string name="section_font">Fuente TTF/OTF → MTZ</string>
+    <string name="section_icons">Pack de iconos APK → MTZ</string>
+    <string name="section_result">Resultado</string>
+    <string name="pick_font">Elegir fuente (TTF/OTF/TTC)</string>
+    <string name="pick_apk">Elegir fichero APK</string>
+    <string name="pick_installed">Pack instalado…</string>
+    <string name="hint_title">Título del tema</string>
+    <string name="hint_author">Autor</string>
+    <string name="hint_ttc_index">Índice en TTC (0 = primera)</string>
+    <string name="opt_fallback">Incluir también como fuente de reserva (DroidSansFallback, experimental)</string>
+    <string name="opt_activity_icons">Generar iconos por actividad cuando difieran</string>
+    <string name="hint_icon_size">Tamaño de icono en px (168 por defecto)</string>
+    <string name="build_font">Generar MTZ de fuente</string>
+    <string name="build_icons">Generar MTZ de iconos</string>
+    <string name="open_themes">Abrir Temas de Xiaomi</string>
+    <string name="apply_experimental">Aplicar con Temas (experimental)</string>
+    <string name="share">Compartir MTZ</string>
+    <string name="no_file">Ningún fichero seleccionado</string>
+    <string name="no_result">Aún no se ha generado ningún MTZ.</string>
+    <string name="themes_missing">No se encontró la app Temas (com.android.thememanager). Puedes compartir el MTZ o abrirlo manualmente.</string>
+    <string name="apply_warning">Esto usa una actividad interna de Temas descubierta por ingeniería inversa. Puede no funcionar en tu versión de HyperOS. Si la fuente no cambia, abre Temas → Fuentes, o reinicia el teléfono. ¿Continuar?</string>
+    <string name="continue_">Continuar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="no_packs">No se encontraron packs de iconos instalados.</string>
+    <string name="working">Procesando…</string>
+</resources>
